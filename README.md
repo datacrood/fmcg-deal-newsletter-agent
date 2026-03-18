@@ -13,6 +13,7 @@
 
 - Issues: from first data capture -> Bloated article, HTML is not cleaned: leading to misformatting, NewsAPI is pulling lot of noise using keyword: FMCG AND (acquisition OR merger OR investment);
 - (FMCG OR "consumer goods" OR CPG) AND (acquisition OR merger OR takeover OR "stake sale" OR buyout); MAX_CONTENT_LEN = 15,000 chars per article: Removed the articles fully intead of storing them in half;  Added _strip_html() used on RSS summaries, titles, and NewsAPI content fallback; _clean() to strip whitespaces
+- Currently added specific keywords to keep relevancy of articles high. In real world, we might skip some news, but not provide un related news it will lead to lose in readers trust. Will remove it once scoring and filtering is set.
 
 ## Filtering layer
 - There might be articles that will be irrelevant to deals: we can apply logic based basic filtering instead of investing LLM here to large article sources (Optimisnig for LLM cost) with the trade off of missing some good articles sometimes which is acceptable to an extent for a newsletter use case. 
@@ -28,3 +29,7 @@
 
 ## Learnings
 - Content hashing is used for exact word to word easy duplicate handling. 
+- The crossover point: MinHash+LSH beats brute force at roughly 10K+ documents. Below that, the index construction overhead       
+  (building hash tables, banding, bucketing) costs more than just computing all pairwise similarities directly.
+- Dedup needs factual identity. Embeddings encode semantic category. Use embeddings for relevance (is this about FMCG deals?). Use lexical methods for identity (is this the same deal?). At this document scale, TF-IDF cosine similarity is the right tool because deal articles are distinguished by named entities (companies, amounts, dates) which surface naturally as high-IDF terms. Embedding-based approaches risk conflating different deals in the same sector since they compress entity-level detail into semantic similarity
+- I can directly call LLM on all input articles: and structure the format: 

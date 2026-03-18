@@ -21,6 +21,7 @@ FALLBACK_PATH = Path(__file__).parent.parent.parent / "data" / "fallback_deals.j
 MAX_CONTENT_LEN = 15_000  # skip articles exceeding this limit
 NEWSAPI_PAGE_SIZE = int(os.getenv("NEWSAPI_PAGE_SIZE", "10"))
 RSS_MAX_PER_FEED = int(os.getenv("RSS_MAX_PER_FEED", "10"))
+DAYS_BACK = int(os.getenv("DAYS_BACK", "14"))
 
 
 def _strip_html(text: str) -> str:
@@ -62,7 +63,7 @@ def _extract_full_text(url: str) -> str | None:
 
 def fetch_from_newsapi(
     query: str = "(FMCG OR \"consumer goods\" OR CPG) AND (acquisition OR merger OR takeover OR \"stake sale\" OR buyout)",
-    days_back: int = 14,
+    days_back: int | None = None,
     page_size: int | None = None,
 ) -> list[dict]:
     """Fetch articles from NewsAPI.org."""
@@ -72,6 +73,7 @@ def fetch_from_newsapi(
         return []
 
     limit = min(max(page_size or NEWSAPI_PAGE_SIZE, 1), 100)
+    days_back = days_back or DAYS_BACK
     from_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
     params = {
         "q": query,
@@ -123,9 +125,11 @@ def fetch_from_newsapi(
         return []
 
 
-def fetch_from_rss(max_per_feed: int | None = None) -> list[dict]:
+def fetch_from_rss(max_per_feed: int | None = None, days_back: int | None = None) -> list[dict]:
     """Fetch from Google News RSS feed for FMCG deals."""
     limit = max_per_feed or RSS_MAX_PER_FEED
+    days_back = days_back or DAYS_BACK
+    cutoff = datetime.now() - timedelta(days=days_back)
     feeds = [
         "https://news.google.com/rss/search?q=FMCG+acquisition+merger&hl=en-IN&gl=IN&ceid=IN:en",
         "https://news.google.com/rss/search?q=consumer+goods+acquisition+deal&hl=en&gl=US&ceid=US:en",
@@ -140,6 +144,17 @@ def fetch_from_rss(max_per_feed: int | None = None) -> list[dict]:
             for entry in feed.entries:
                 if feed_count >= limit:
                     break
+
+                # Filter by date
+                pub = entry.get("published", "")
+                if pub:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        pub_dt = parsedate_to_datetime(pub)
+                        if pub_dt.replace(tzinfo=None) < cutoff:
+                            continue
+                    except Exception:
+                        pass
 
                 raw_url = entry.get("link", "")
                 title = _strip_html(entry.get("title", ""))

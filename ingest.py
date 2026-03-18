@@ -95,11 +95,11 @@ def ingest_node(state: dict) -> dict:
     dedup_removed = before_dedup - len(all_articles)
 
     # Relevance filter
-    before_filter = len(all_articles)
-    all_articles = [a for a in all_articles if _is_relevant(a)]
-    filtered_out = before_filter - len(all_articles)
+    # before_filter = len(all_articles)
+    # all_articles = [a for a in all_articles if _is_relevant(a)]
+    # filtered_out = before_filter - len(all_articles)
 
-    print(f"  [ingest] Dedup removed {dedup_removed}, relevance filter removed {filtered_out}")
+    # print(f"  [ingest] Dedup removed {dedup_removed}, relevance filter removed {filtered_out}")
 
     json_path = _save_raw(all_articles)
 
@@ -107,7 +107,7 @@ def ingest_node(state: dict) -> dict:
     metadata["ingested_count"] = len(all_articles)
     metadata["sources_used"] = sources_used
     metadata["dedup_removed"] = dedup_removed
-    metadata["filtered_out"] = filtered_out
+    # metadata["filtered_out"] = filtered_out
     metadata["ingested_at"] = datetime.now().isoformat()
 
     print(f"  [ingest] {len(all_articles)} articles from {', '.join(sources_used)} -> {json_path}")
@@ -130,7 +130,7 @@ def main():
     print(f"\nIngested {result['metadata']['ingested_count']} articles")
     print(f"Sources: {', '.join(result['metadata']['sources_used'])}")
     print(f"Dedup removed: {result['metadata']['dedup_removed']}")
-    print(f"Filtered out (irrelevant): {result['metadata']['filtered_out']}")
+    # print(f"Filtered out (irrelevant): {result['metadata']['filtered_out']}")
     print(f"Output:  {result['output_paths']['raw_json']}")
 
 
