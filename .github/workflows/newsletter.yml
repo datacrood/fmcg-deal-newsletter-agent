@@ -1,9 +1,9 @@
 name: FMCG Deal Newsletter
 
 on:
-  schedule:
-    - cron: '0 8 * * 1'  # Every Monday 8am UTC
-  workflow_dispatch: {}    # Manual "Run workflow" button
+  # schedule:
+  #   - cron: '0 8 * * 1'  # Every Monday 8am UTC — uncomment to enable
+  workflow_dispatch: {}    # Manual "Run workflow" button only
 
 permissions:
   contents: write

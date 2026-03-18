@@ -17,9 +17,9 @@ from googlenewsdecoder import new_decoderv1
 
 FALLBACK_PATH = Path(__file__).parent / "output" / "raw_deals.json"
 MAX_CONTENT_LEN = 15_000  # skip articles exceeding this limit
-NEWSAPI_PAGE_SIZE = int(os.getenv("NEWSAPI_PAGE_SIZE", "10"))
+NEWSAPI_PAGE_SIZE = int(os.getenv("NEWSAPI_PAGE_SIZE", "100"))
 RSS_MAX_PER_FEED = int(os.getenv("RSS_MAX_PER_FEED", "1000"))
-DAYS_BACK = int(os.getenv("DAYS_BACK", "14"))
+DAYS_BACK = int(os.getenv("DAYS_BACK", "180"))
 
 
 def _strip_html(text: str) -> str:
