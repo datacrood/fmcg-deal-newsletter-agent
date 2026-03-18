@@ -1,145 +1,188 @@
-"""
-News fetching tool: NewsAPI + Google News RSS + fallback JSON.
-"""
+"""News fetching: NewsAPI + Google News RSS + fallback JSON."""
 from __future__ import annotations
 
-import hashlib
 import json
-import logging
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import feedparser
 import requests
 import trafilatura
-
-# print = logging.getprint(__name__)
+from googlenewsdecoder import new_decoderv1
 
 FALLBACK_PATH = Path(__file__).parent.parent.parent / "data" / "fallback_deals.json"
+MAX_CONTENT_LEN = 15_000  # skip articles exceeding this limit
+NEWSAPI_PAGE_SIZE = int(os.getenv("NEWSAPI_PAGE_SIZE", "10"))
+RSS_MAX_PER_FEED = int(os.getenv("RSS_MAX_PER_FEED", "10"))
 
 
-def _content_hash(text: str) -> str:
-    return hashlib.sha256(text[:1000].encode()).hexdigest()
+def _strip_html(text: str) -> str:
+    """Remove HTML tags and collapse whitespace."""
+    clean = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def _resolve_google_news_url(google_url: str) -> str:
+    """Decode Google News URL to get the actual article URL."""
+    try:
+        result = new_decoderv1(google_url)
+        if result.get("status") and result.get("decoded_url"):
+            return result["decoded_url"]
+    except Exception as e:
+        print(f"    [rss] Failed to decode Google News URL: {e}")
+    return google_url
 
 
 def _extract_full_text(url: str) -> str | None:
-    """Extract article text using trafilatura (F1: 0.958)."""
+    """Extract article text using trafilatura."""
+    print(f"    [trafilatura] Extracting text from {url[:80]} ...")
     try:
         downloaded = trafilatura.fetch_url(url)
         if downloaded:
-            return trafilatura.extract(downloaded, include_comments=False)
+            text = trafilatura.extract(downloaded, include_comments=False)
+            if text:
+                if len(text) > MAX_CONTENT_LEN:
+                    print(f"    [trafilatura] Skipped — {len(text)} chars exceeds {MAX_CONTENT_LEN} limit")
+                    return None
+                print(f"    [trafilatura] OK — {len(text)} chars extracted")
+            else:
+                print(f"    [trafilatura] No text could be extracted")
+            return text
     except Exception as e:
-        print(f"trafilatura failed for {url}: {e}")
+        print(f"    [trafilatura] FAILED for {url[:80]}: {e}")
     return None
 
 
-def fetch_from_newsapi(query: str = "FMCG AND (acquisition OR merger OR investment)", days_back: int = 14) -> list[dict]:
+def fetch_from_newsapi(
+    query: str = "(FMCG OR \"consumer goods\" OR CPG) AND (acquisition OR merger OR takeover OR \"stake sale\" OR buyout)",
+    days_back: int = 14,
+    page_size: int | None = None,
+) -> list[dict]:
     """Fetch articles from NewsAPI.org."""
     api_key = os.getenv("NEWSAPI_KEY")
     if not api_key:
-        print("NEWSAPI_KEY not set, skipping NewsAPI")
+        print("  [newsapi] NEWSAPI_KEY not set, skipping")
         return []
 
+    limit = min(max(page_size or NEWSAPI_PAGE_SIZE, 1), 100)
     from_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
-    url = "https://newsapi.org/v2/everything"
     params = {
         "q": query,
         "from": from_date,
         "sortBy": "relevancy",
         "language": "en",
-        "pageSize": 50,
+        "pageSize": limit,
         "apiKey": api_key,
     }
 
+    print(f"  [newsapi] Fetching articles (query={query!r}, from={from_date}) ...")
     try:
-        resp = requests.get(url, params=params, timeout=15)
+        resp = requests.get("https://newsapi.org/v2/everything", params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
+        print(f"  [newsapi] API responded with {data.get('totalResults', '?')} total results")
         articles = []
         for i, art in enumerate(data.get("articles", [])):
             source_name = art.get("source", {}).get("name", "Unknown")
             source_url = art.get("url", "")
-            domain = ""
-            if source_url:
-                from urllib.parse import urlparse
-                domain = urlparse(source_url).netloc.replace("www.", "")
+            domain = urlparse(source_url).netloc.replace("www.", "") if source_url else ""
 
-            # Try to extract full text
-            content = art.get("content") or art.get("description") or ""
+            title = art.get("title", "")
+            print(f"  [newsapi] [{i+1}] {title[:80]}")
+
+            content = _strip_html(art.get("content") or art.get("description") or "")
             full_text = _extract_full_text(source_url)
             if full_text:
                 content = full_text
 
+            if len(content) > MAX_CONTENT_LEN:
+                print(f"  [newsapi] Skipping [{i+1}] — {len(content)} chars exceeds limit")
+                continue
+
             articles.append({
                 "id": f"newsapi_{i:03d}",
-                "title": art.get("title", ""),
+                "title": title,
                 "source": source_name,
                 "source_domain": domain,
                 "published_date": (art.get("publishedAt") or "")[:10],
                 "url": source_url,
                 "content": content,
-                "content_hash": _content_hash(content) if content else "",
                 "fetch_method": "newsapi",
             })
-        print(f"NewsAPI returned {len(articles)} articles")
+        print(f"  [newsapi] Done — {len(articles)} articles fetched")
         return articles
     except Exception as e:
-        print(f"NewsAPI fetch failed: {e}")
+        print(f"  [newsapi] FAILED: {e}")
         return []
 
 
-def fetch_from_rss() -> list[dict]:
+def fetch_from_rss(max_per_feed: int | None = None) -> list[dict]:
     """Fetch from Google News RSS feed for FMCG deals."""
+    limit = max_per_feed or RSS_MAX_PER_FEED
     feeds = [
         "https://news.google.com/rss/search?q=FMCG+acquisition+merger&hl=en-IN&gl=IN&ceid=IN:en",
         "https://news.google.com/rss/search?q=consumer+goods+acquisition+deal&hl=en&gl=US&ceid=US:en",
     ]
     articles = []
-    for feed_url in feeds:
+    for feed_idx, feed_url in enumerate(feeds, 1):
+        print(f"  [rss] Fetching feed {feed_idx}/{len(feeds)}: {feed_url[:80]} ...")
+        feed_count = 0
         try:
             feed = feedparser.parse(feed_url)
-            for i, entry in enumerate(feed.entries[:25]):
-                source = entry.get("source", {}).get("title", "Google News")
-                url = entry.get("link", "")
-                domain = ""
-                if url:
-                    from urllib.parse import urlparse
-                    domain = urlparse(url).netloc.replace("www.", "")
+            print(f"  [rss] Feed {feed_idx} returned {len(feed.entries)} entries (limit {limit})")
+            for entry in feed.entries:
+                if feed_count >= limit:
+                    break
 
-                content = entry.get("summary", "")
-                full_text = _extract_full_text(url)
+                raw_url = entry.get("link", "")
+                title = _strip_html(entry.get("title", ""))
+
+                actual_url = _resolve_google_news_url(raw_url) if raw_url else ""
+                if actual_url != raw_url:
+                    print(f"  [rss] [{len(articles)+1}] {title[:60]} -> {urlparse(actual_url).netloc}")
+
+                source = entry.get("source", {}).get("title", "Google News")
+                domain = urlparse(actual_url).netloc.replace("www.", "") if actual_url else ""
+                content = _strip_html(entry.get("summary", ""))
+
+                full_text = _extract_full_text(actual_url) if actual_url else None
                 if full_text:
                     content = full_text
 
+                if len(content) > MAX_CONTENT_LEN:
+                    print(f"  [rss] Skipping [{len(articles)+1}] — {len(content)} chars exceeds limit")
+                    continue
+
                 articles.append({
                     "id": f"rss_{len(articles):03d}",
-                    "title": entry.get("title", ""),
+                    "title": title,
                     "source": source,
                     "source_domain": domain,
                     "published_date": entry.get("published", "")[:10] if entry.get("published") else "",
-                    "url": url,
+                    "url": actual_url,
                     "content": content,
-                    "content_hash": _content_hash(content) if content else "",
                     "fetch_method": "rss",
                 })
-            print(f"RSS feed returned {len(feed.entries)} entries")
+                feed_count += 1
         except Exception as e:
-            print(f"RSS fetch failed for {feed_url}: {e}")
+            print(f"  [rss] FAILED for feed {feed_idx}: {e}")
+    print(f"  [rss] Done — {len(articles)} total articles from {len(feeds)} feeds")
     return articles
 
 
 def fetch_fallback() -> list[dict]:
     """Load curated fallback dataset."""
+    print(f"  [fallback] Loading from {FALLBACK_PATH} ...")
     with open(FALLBACK_PATH) as f:
         articles = json.load(f)
     for art in articles:
-        art["content_hash"] = _content_hash(art.get("content", ""))
         art["fetch_method"] = "fallback"
-    print(f"Loaded {len(articles)} fallback articles")
+    print(f"  [fallback] Loaded {len(articles)} articles")
     return articles
-
-if __name__=="__main__":
-    # logging.basicConfig(level=logging.INFO)
-    res = fetch_from_rss()
-    print(f"Fetched {len(res)} articles")

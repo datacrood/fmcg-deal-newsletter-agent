@@ -10,9 +10,21 @@
 - Others: Installed pytest for quick article fetch testing.
 - Idea: Improve query to fetch good articles from scratch: using prompt engineering: Create a list of basic vocubulary to search for like FMCG industry names (ever-growing) and high quality deal terminologies or negative sampling by introducing feedback loop
 
+
+- Issues: from first data capture -> Bloated article, HTML is not cleaned: leading to misformatting, NewsAPI is pulling lot of noise using keyword: FMCG AND (acquisition OR merger OR investment);
+- (FMCG OR "consumer goods" OR CPG) AND (acquisition OR merger OR takeover OR "stake sale" OR buyout); MAX_CONTENT_LEN = 15,000 chars per article: Removed the articles fully intead of storing them in half;  Added _strip_html() used on RSS summaries, titles, and NewsAPI content fallback; _clean() to strip whitespaces
+
 ## Filtering layer
 - There might be articles that will be irrelevant to deals: we can apply logic based basic filtering instead of investing LLM here to large article sources (Optimisnig for LLM cost) with the trade off of missing some good articles sometimes which is acceptable to an extent for a newsletter use case. 
 - Since we are collecting data from different sources (NewsAPI and Google RSS) we might have similar articles: We need to remove such duplicacy of articles. It might have less chances of url dedup if sources are fixed, Title can be similar so it's required, Further we can use TF_IDF (may use BM25 too) (Might miss different language articles so assumption to extract only englisth articles for now) for the content matching (Alternatively try setnence embedding model). We can also use spacy to extract root verb lemma that belongs to {acquire, merge, buy...} or ORGS{HUL, etc...}: 
   - Idea can further create scoring system from spacy to pre-filter threshold basis articles to gate LLM calls for reasoning based filtering for cost effectiveness.
   - Spacy entity-pair: (Acquirer, Target) by depdency parse: grouping articles by these pairs and applying fuzzy matching
 - Content: We can use Spacy nlp.pipe() for the MONEY entity extraction replacing regex to catch formats like EUR, $, ₹ etc...
+
+
+
+
+
+
+## Learnings
+- Content hashing is used for exact word to word easy duplicate handling. 
