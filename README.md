@@ -23,9 +23,9 @@ graph LR
     D --> E[Deploy<br/>GitHub Pages]
 ```
 
-1. **Ingest** — Fetches articles from NewsAPI, Google News RSS feeds, or a fallback JSON dataset. Performs URL-level deduplication across sources.
+1. **Ingest** — Fetches articles from NewsAPI, Google News RSS feeds, or a fallback JSON dataset. Full-text extraction via trafilatura runs in parallel threads. Performs URL-level deduplication across sources.
 2. **Dedup** — TF-IDF vectorization + cosine similarity to cluster near-duplicate articles. Keeps the best source per cluster and tracks corroboration counts.
-3. **Score** — LLM-based structured extraction (deal type, acquirer, target, value, sector) with keyword-only fallback. Filters by source credibility and relevance cutoff.
+3. **Score** — LLM-based structured extraction (deal type, acquirer, target, value, sector) with keyword-only fallback. Articles below the credibility cutoff are discarded. Concurrent async LLM calls (capped at 5, 60s timeout) via OpenRouter.
 4. **Newsletter** — Generates Markdown, Word (.docx), and styled HTML newsletters with headline deal, briefs, sector pulse, watchlist, and executive summary. LLM-generated narrative sections with template fallbacks.
 
 Built on [LangGraph](https://github.com/langchain-ai/langgraph) for orchestration. Deployed via GitHub Actions (weekly schedule + manual trigger).
@@ -46,11 +46,17 @@ cp .env.example .env
 ## Usage
 
 ```bash
-# Live mode — fetches from NewsAPI + RSS (requires API keys)
+# Full pipeline — fetch from NewsAPI + RSS, then process (requires API keys)
 python main.py
 
 # Demo mode — uses fallback dataset, no API keys needed
 python main.py --demo
+
+# Skip ingestion — process existing raw_deals.json (dedup → score → newsletter)
+python main.py --skip-ingest
+
+# Skip ingestion + disable LLM (keyword scoring only)
+python main.py --skip-ingest --no-api
 ```
 
 ## Output
@@ -66,6 +72,8 @@ All generated files go to `output/`:
 | `newsletter.docx` | Word document version |
 | `newsletter.html` | Styled HTML newsletter (deployed to GitHub Pages) |
 | `llm_cache.json` | Cached LLM responses (avoids re-scoring) |
+
+At the end of each run, the pipeline prints an LLM cost summary (tokens + USD via OpenRouter).
 
 ## Configuration
 
