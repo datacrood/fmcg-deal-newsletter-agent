@@ -5,6 +5,7 @@ from collections import Counter
 from datetime import datetime
 
 from config import MODEL, OPENROUTER_BASE_URL, OUTPUT_DIR
+from pipeline.cost_tracker import tracker as cost_tracker
 
 # Emoji mapping for deal types
 _DEAL_EMOJI = {
@@ -45,7 +46,9 @@ def _get_llm():
 def _llm_generate(llm, prompt: str) -> str:
     """Call LLM and return content string. Returns empty string on failure."""
     try:
-        return llm.invoke(prompt).content
+        response = llm.invoke(prompt)
+        cost_tracker.record(response)
+        return response.content
     except Exception as e:
         print(f"    [newsletter] LLM generation failed: {e}")
         return ""

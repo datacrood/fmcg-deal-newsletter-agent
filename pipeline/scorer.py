@@ -6,6 +6,8 @@ import json
 import os
 import re
 
+from pipeline.cost_tracker import tracker as cost_tracker
+
 from config import (
     CREDIBILITY_CUTOFF,
     DEAL_KEYWORDS,
@@ -169,6 +171,7 @@ async def _llm_analyze_async(
             response = await asyncio.wait_for(
                 llm.ainvoke(prompt), timeout=_LLM_TIMEOUT,
             )
+            cost_tracker.record(response)
             result = _parse_llm_response(response.content.strip())
             print(f"    [scorer] Done {idx}/{total}: {title}")
             return result

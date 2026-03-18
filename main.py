@@ -76,6 +76,11 @@ def main():
     for name, path in paths.items():
         print(f"  {name}: {path}")
 
+    from pipeline.cost_tracker import tracker as cost_tracker
+    if cost_tracker.calls > 0:
+        print()
+        print(cost_tracker.summary())
+
 
 if __name__ == "__main__":
     main()
