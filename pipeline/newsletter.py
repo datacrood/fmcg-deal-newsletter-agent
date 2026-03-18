@@ -375,6 +375,25 @@ def newsletter_node(state: dict) -> dict:
 
     print(f"  [newsletter] Saved → {md_path}")
 
+    # Generate Word document
+    from pipeline.newsletter_docx import render_docx
+    docx_path = render_docx(sections, deals, run_date)
+
+    # Generate HTML newsletter
+    from pipeline.newsletter_html import render_html
+    html_content = render_html(sections, deals, run_date)
+    html_path = OUTPUT_DIR / "newsletter.html"
+    html_path.write_text(html_content)
+    print(f"  [newsletter] Saved → {html_path}")
+
+    # Generate index.html redirect for GitHub Pages
+    index_path = OUTPUT_DIR / "index.html"
+    index_path.write_text(
+        '<!DOCTYPE html>\n<html><head>'
+        '<meta http-equiv="refresh" content="0;url=newsletter.html">'
+        '</head><body></body></html>\n'
+    )
+
     metadata["newsletter_deals"] = len(deals)
     metadata["newsletter_generated"] = datetime.now().isoformat()
 
@@ -383,6 +402,8 @@ def newsletter_node(state: dict) -> dict:
         "output_paths": {
             **state.get("output_paths", {}),
             "newsletter_md": str(md_path),
+            "newsletter_docx": docx_path,
+            "newsletter_html": str(html_path),
         },
         "metadata": metadata,
     }
