@@ -1,0 +1,10 @@
+feedparser
+googlenewsdecoder
+langchain-openai
+langgraph
+pandas
+python-dotenv
+requests
+scikit-learn
+spacy
+trafilatura

@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from pathlib import Path
 
+from config import OUTPUT_DIR
 from news_fetcher import fetch_from_newsapi, fetch_from_rss, fetch_fallback
-
-OUTPUT_DIR = Path(__file__).parent.parent / "output"
 
 
 def _url_dedup(articles: list[dict]) -> list[dict]:

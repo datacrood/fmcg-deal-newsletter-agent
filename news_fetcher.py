@@ -5,12 +5,9 @@ import json
 import os
 import re
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlparse
-
-from dotenv import load_dotenv
-
-load_dotenv()
 
 import feedparser
 import requests
@@ -149,7 +146,6 @@ def fetch_from_rss(max_per_feed: int | None = None, days_back: int | None = None
                 pub = entry.get("published", "")
                 if pub:
                     try:
-                        from email.utils import parsedate_to_datetime
                         pub_dt = parsedate_to_datetime(pub)
                         if pub_dt.replace(tzinfo=None) < cutoff:
                             continue

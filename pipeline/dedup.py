@@ -7,14 +7,11 @@ near-duplicate articles, then keeps the best source per cluster.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from config import SIMILARITY_THRESHOLD_TFIDF
-
-OUTPUT_DIR = Path(__file__).parent.parent / "output"
+from config import OUTPUT_DIR, SIMILARITY_THRESHOLD_TFIDF
 
 
 def _make_text(article: dict) -> str:

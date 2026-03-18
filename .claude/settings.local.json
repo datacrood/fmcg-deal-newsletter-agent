@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/deveshsharma/personal-projects/fmcg-deal-newsletter-agent | grep -E \"\\\\.\\(txt|toml|yaml|yml|cfg|ini\\)$\")"
+    ]
+  }
+}
