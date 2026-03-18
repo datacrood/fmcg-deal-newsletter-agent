@@ -1,0 +1,58 @@
+{
+  "https://www.worldconstructionnetwork.com/news/globaldata-main-market-lse/": {
+    "relevance_score": 0.4,
+    "relevance_reasoning": "The article discusses a corporate move to the Main Market of the LSE and mentions acquisitions but does not detail a specific M&A deal in the FMCG sector.",
+    "deal_type": "other",
+    "acquirer": null,
+    "target": null,
+    "deal_value_structured": "Undisclosed",
+    "deal_status": "completed",
+    "sector": null,
+    "key_insight": "GlobalData transitions to the Main Market of the LSE, reflecting its growth and strategic evolution.",
+    "why_it_matters": "This move signifies GlobalData's maturity and the success of its long-term strategy, enhancing its market presence.",
+    "story_angle": "Standard sector transaction.",
+    "headline_summary": "GlobalData Plc, the parent company of World Construction Network, has successfully transitioned from AIM to the Main Market of the London Stock Exchange as of March 5, 2026. This strategic move highlights the company's growth and maturity achieved through a long-term platform strategy and targeted acquisitions."
+  },
+  "https://www.livemint.com/industry/india-consumer-goods-premium-personal-care-market-growth-11773377937860.html": {
+    "relevance_score": 0.9,
+    "relevance_reasoning": "The article discusses multiple acquisitions in the FMCG sector, particularly in the personal care space, indicating a strong focus on premiumization.",
+    "deal_type": "acquisition",
+    "acquirer": "Dabur India Ltd",
+    "target": "Ras Luxury Oils",
+    "deal_value_structured": "Undisclosed",
+    "deal_status": "completed",
+    "sector": "Personal Care",
+    "key_insight": "Dabur expands its premium offerings through the acquisition of Ras Luxury Oils.",
+    "why_it_matters": "This acquisition marks Dabur's first direct-to-consumer brand purchase, highlighting a strategic shift towards premiumization in the personal care segment.",
+    "story_angle": "First acquisition of a D2C brand under Dabur's new venture fund.",
+    "headline_summary": "Dabur India Ltd has acquired a majority stake in premium Ayurvedic skincare brand Ras Luxury Oils, marking its first acquisition of a direct-to-consumer brand under its ₹500-crore Dabur Venture Fund. This move aligns with the company's strategy to expand its premium personal care offerings."
+  },
+  "https://www.thehindubusinessline.com/markets/share-market-nifty-sensex-highlights-12th-march-2026/article70730790.ece": {
+    "relevance_score": 0.0,
+    "relevance_reasoning": "The article discusses stock market performance and currency exchange rates, with no mention of any FMCG M&A deals.",
+    "deal_type": null,
+    "acquirer": null,
+    "target": null,
+    "deal_value_structured": null,
+    "deal_status": null,
+    "sector": null,
+    "key_insight": null,
+    "why_it_matters": null,
+    "story_angle": null,
+    "headline_summary": null
+  },
+  "https://cosmeticsbusiness.com/henkel-acquires-not-your-mothers": {
+    "relevance_score": 0.9,
+    "relevance_reasoning": "This is a core FMCG M&A deal involving a major acquisition in the personal care sector.",
+    "deal_type": "acquisition",
+    "acquirer": "Henkel",
+    "target": "Not Your Mother’s and DeMert Brands",
+    "deal_value_structured": "Undisclosed",
+    "deal_status": "announced",
+    "sector": "Personal Care",
+    "key_insight": "Henkel strengthens its position in the North American hair care market with the acquisition of Not Your Mother’s.",
+    "why_it_matters": "This acquisition enhances Henkel's consumer hair portfolio and aligns with its strategy for growth through M&A.",
+    "story_angle": "Strategic acquisition to bolster market presence in the largest global hair market.",
+    "headline_summary": "Henkel has announced the acquisition of hair care brand Not Your Mother’s and its parent company DeMert Brands from Main Post Partners. The deal aims to strengthen Henkel's presence in the North American beauty market, although the financial terms remain undisclosed. This move is part of Henkel's strategy to expand its consumer hair portfolio, which includes brands like Schwarzkopf and Got2Be."
+  }
+}
