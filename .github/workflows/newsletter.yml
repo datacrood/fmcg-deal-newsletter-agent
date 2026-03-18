@@ -5,6 +5,9 @@ on:
     - cron: '0 8 * * 1'  # Every Monday 8am UTC
   workflow_dispatch: {}    # Manual "Run workflow" button
 
+permissions:
+  contents: write
+
 jobs:
   generate:
     runs-on: ubuntu-latest
