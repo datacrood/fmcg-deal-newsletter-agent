@@ -1,23 +1,34 @@
 # FMCG Deal Pulse
 
-Automated newsletter pipeline that discovers, scores, and summarizes FMCG M&A deals.
+[![FMCG Deal Newsletter](https://github.com/deveshsharma/fmcg-deal-newsletter-agent/actions/workflows/newsletter.yml/badge.svg)](https://github.com/deveshsharma/fmcg-deal-newsletter-agent/actions/workflows/newsletter.yml)
+
+Automated newsletter pipeline that discovers, scores, and summarizes FMCG M&A deals. Outputs Markdown, Word, and a styled HTML newsletter deployed to GitHub Pages.
+
+## Live Newsletter
+
+After enabling GitHub Pages, the latest newsletter is available at:
+`https://<username>.github.io/fmcg-deal-newsletter-agent/newsletter.html`
 
 ## Overview
 
-The pipeline ingests articles from NewsAPI and Google News RSS, deduplicates them using TF-IDF cosine similarity, scores relevance via LLM (with keyword fallback), and generates a Substack-style Markdown newsletter.
+The pipeline ingests articles from NewsAPI and Google News RSS, deduplicates them using TF-IDF cosine similarity, scores relevance via LLM (with keyword fallback), and generates a multi-format newsletter (Markdown, Word doc, HTML).
 
 ## Pipeline Architecture
 
-```
-ingest → dedup → score → newsletter
+```mermaid
+graph LR
+    A[Ingest<br/>NewsAPI · RSS · Fallback] --> B[Dedup<br/>TF-IDF Cosine Similarity]
+    B --> C[Score<br/>LLM Extraction · Keyword Fallback]
+    C --> D[Newsletter<br/>Markdown · Word · HTML]
+    D --> E[Deploy<br/>GitHub Pages]
 ```
 
 1. **Ingest** — Fetches articles from NewsAPI, Google News RSS feeds, or a fallback JSON dataset. Performs URL-level deduplication across sources.
 2. **Dedup** — TF-IDF vectorization + cosine similarity to cluster near-duplicate articles. Keeps the best source per cluster and tracks corroboration counts.
 3. **Score** — LLM-based structured extraction (deal type, acquirer, target, value, sector) with keyword-only fallback. Filters by source credibility and relevance cutoff.
-4. **Newsletter** — Assembles a Markdown newsletter with headline deal, briefs, sector pulse, watchlist, and executive summary. LLM-generated narrative sections with template fallbacks.
+4. **Newsletter** — Generates Markdown, Word (.docx), and styled HTML newsletters with headline deal, briefs, sector pulse, watchlist, and executive summary. LLM-generated narrative sections with template fallbacks.
 
-Built on [LangGraph](https://github.com/langchain-ai/langgraph) for orchestration.
+Built on [LangGraph](https://github.com/langchain-ai/langgraph) for orchestration. Deployed via GitHub Actions (weekly schedule + manual trigger).
 
 ## Setup
 
@@ -52,6 +63,8 @@ All generated files go to `output/`:
 | `deduped_deals.json` | After TF-IDF deduplication |
 | `scored_deals.csv` | All articles with scores and structured fields |
 | `newsletter.md` | Final newsletter in Markdown |
+| `newsletter.docx` | Word document version |
+| `newsletter.html` | Styled HTML newsletter (deployed to GitHub Pages) |
 | `llm_cache.json` | Cached LLM responses (avoids re-scoring) |
 
 ## Configuration

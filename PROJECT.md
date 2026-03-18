@@ -36,7 +36,8 @@ Problems: Generic articles without any industry merger but overall scene: Tried 
 
 ## Solved problem
 - The LLM call was sequential for all articles, made it parallel using asyncio and OpenAI async .ainvoke()
-- LLM calls getting stuck: Added a timeout. 
+- LLM calls getting stuck: Added a timeout.
+- Input data was taking long time to run: Made it parallel using concurrent threads since trafilatura was I/O bound
 
 
 
