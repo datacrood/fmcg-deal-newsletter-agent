@@ -22,9 +22,9 @@ jobs:
 
       - run: python -m spacy download en_core_web_sm
 
-      - run: python main.py --demo
+      - run: python main.py
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
 
       - uses: actions/upload-artifact@v4
