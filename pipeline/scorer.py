@@ -1,5 +1,6 @@
 """Scoring node: LLM-based or keyword-based relevance scoring."""
 
+import asyncio
 import hashlib
 import json
 import os
@@ -102,25 +103,12 @@ def _keyword_article_stub(article: dict) -> None:
         article[field] = None
 
 
-def _llm_analyze(article: dict) -> dict:
-    """Score and extract structured deal data from a single article via LLM.
-
-    Returns dict with relevance_score, relevance_reasoning, and structured fields.
-    On failure, falls back to keyword scoring + null structured fields.
-    """
-    from langchain_openai import ChatOpenAI
-
-    llm = ChatOpenAI(
-        model=MODEL,
-        temperature=0,
-        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-        openai_api_base=OPENROUTER_BASE_URL,
-    )
-
+def _build_prompt(article: dict) -> str:
+    """Build the LLM analysis prompt for a single article."""
     content = article.get("content", "") or ""
     truncated_content = content[:4000]
 
-    prompt = f"""You are an FMCG M&A analyst extracting structured deal intelligence.
+    return f"""You are an FMCG M&A analyst extracting structured deal intelligence.
 
 Analyze this article and return structured data.
 
@@ -149,24 +137,46 @@ Extraction instructions:
 Return ONLY valid JSON, no markdown fences:
 {{"relevance_score": 0.85, "relevance_reasoning": "brief reason", "deal_type": "acquisition", "acquirer": "Company A", "target": "Company B", "deal_value_structured": "$2.1B", "deal_status": "announced", "sector": "Dairy & Nutrition", "key_insight": "...", "why_it_matters": "...", "story_angle": "...", "headline_summary": "..."}}"""
 
-    try:
-        response = llm.invoke(prompt)
-        content_text = response.content.strip()
 
-        json_match = re.search(r'\{.*\}', content_text, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON object found in LLM response")
+def _parse_llm_response(content_text: str) -> dict:
+    """Parse and validate the JSON response from the LLM."""
+    json_match = re.search(r'\{.*\}', content_text, re.DOTALL)
+    if not json_match:
+        raise ValueError("No JSON object found in LLM response")
 
-        result = json.loads(json_match.group())
+    result = json.loads(json_match.group())
 
-        # Validate required fields
-        if "relevance_score" not in result:
-            raise ValueError("Missing relevance_score in LLM response")
+    if "relevance_score" not in result:
+        raise ValueError("Missing relevance_score in LLM response")
 
-        return result
-    except Exception as e:
-        print(f"    [scorer] LLM analysis failed for '{article.get('title', '')[:60]}': {e}")
-        # Fall back to keyword scoring + null structured fields
+    return result
+
+
+_LLM_CONCURRENCY = 5   # max parallel requests to OpenRouter
+_LLM_TIMEOUT = 60      # seconds per request
+
+
+async def _llm_analyze_async(
+    article: dict, llm, idx: int, total: int, semaphore: asyncio.Semaphore,
+) -> dict:
+    """Async LLM analysis for a single article, with concurrency + timeout."""
+    title = article.get('title', '')[:60]
+
+    async with semaphore:
+        print(f"    [scorer] Analyzing article {idx}/{total}: {title}")
+        prompt = _build_prompt(article)
+        try:
+            response = await asyncio.wait_for(
+                llm.ainvoke(prompt), timeout=_LLM_TIMEOUT,
+            )
+            result = _parse_llm_response(response.content.strip())
+            print(f"    [scorer] Done {idx}/{total}: {title}")
+            return result
+        except asyncio.TimeoutError:
+            print(f"    [scorer] Timeout after {_LLM_TIMEOUT}s for '{title}'")
+        except Exception as e:
+            print(f"    [scorer] Failed for '{title}': {e}")
+
         score, reasoning = _keyword_score(article)
         fallback = {"relevance_score": score, "relevance_reasoning": reasoning}
         for field in _STRUCTURED_FIELDS:
@@ -201,29 +211,54 @@ def score_node(state: dict) -> dict:
     # Score credible articles with LLM or keywords
     scored = []
     if use_llm and credible:
+        from langchain_openai import ChatOpenAI
+
+        llm = ChatOpenAI(
+            model=MODEL,
+            temperature=0,
+            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+            openai_api_base=OPENROUTER_BASE_URL,
+        )
+
         cache = _load_cache()
-        cache_hits = 0
-        print(f"  [scorer] Using LLM-based analysis for {len(credible)} credible articles")
-        for i, article in enumerate(credible):
+
+        # Split into cached and uncached
+        cached_articles = []
+        uncached_articles = []
+        for article in credible:
             key = _cache_key(article)
             if key in cache:
-                result = cache[key]
-                cache_hits += 1
-                print(f"    [scorer] Cache hit {i+1}/{len(credible)}: "
-                      f"{article.get('title', '')[:60]}")
+                cached_articles.append((article, cache[key]))
             else:
-                print(f"    [scorer] Analyzing article {i+1}/{len(credible)}: "
-                      f"{article.get('title', '')[:60]}")
-                result = _llm_analyze(article)
-                cache[key] = result
+                uncached_articles.append(article)
+
+        if cached_articles:
+            print(f"  [scorer] {len(cached_articles)} cached, {len(uncached_articles)} need LLM")
+
+        # Fire uncached LLM calls concurrently (capped at _LLM_CONCURRENCY)
+        if uncached_articles:
+            print(f"  [scorer] Analyzing {len(uncached_articles)} articles "
+                  f"(max {_LLM_CONCURRENCY} concurrent, {_LLM_TIMEOUT}s timeout)...")
+            semaphore = asyncio.Semaphore(_LLM_CONCURRENCY)
+            tasks = [
+                _llm_analyze_async(a, llm, i + 1, len(uncached_articles), semaphore)
+                for i, a in enumerate(uncached_articles)
+            ]
+            results = asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
+
+            for article, result in zip(uncached_articles, results):
+                cache[_cache_key(article)] = result
+
+            _save_cache(cache)
+
+        # Apply all results (cached + fresh) to articles
+        for article in credible:
+            result = cache[_cache_key(article)]
             article["relevance_score"] = result["relevance_score"]
             article["relevance_reasoning"] = result.get("relevance_reasoning", "")
             for field in _STRUCTURED_FIELDS:
                 article[field] = result.get(field)
             scored.append(article)
-        _save_cache(cache)
-        if cache_hits:
-            print(f"  [scorer] {cache_hits} cached, {len(credible) - cache_hits} new LLM calls")
     else:
         if credible:
             print("  [scorer] Using keyword-based scoring (no-API mode)")
